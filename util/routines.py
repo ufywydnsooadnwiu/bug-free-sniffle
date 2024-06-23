@@ -444,33 +444,31 @@ class jump_shot(Routine):
 
 
 class kickoff(Routine):
-    # A simple 1v1 kickoff that just drives up behind the ball and dodges
-    # misses the boost on the slight-offcenter kickoffs haha
-    def run(self, agent):
-        target = agent.ball.location + Vector3(0, 200*side(agent.team), 0)
-        local_target = agent.me.local(target - agent.me.location)
-        defaultPD(agent, local_target)
-        defaultThrottle(agent, 2300)
-        if local_target.magnitude() < 650:
-            # flip towards opponent goal
-            agent.set_intent(
-                flip(agent.me.local(agent.foe_goal.location - agent.me.location)))
-
-
-class delayed_kickoff(Routine):
     def __init__(self, car_pos):
         self.diag = abs(car_pos.x) > 1300
 
     def run(self, agent):
         if not agent.kickoff_flag:
             agent.intent = None
-        fac = 200 if self.diag or abs(agent.me.location.y) < 2500 else 1000
+        fac = 150 if self.diag or abs(agent.me.location.y) < 2500 else 1000
         target = agent.ball.location + Vector3(0, fac * side(agent.team), 0)
         local_target = agent.me.local(target - agent.me.location)
         defaultPD(agent, local_target)
         defaultThrottle(agent, 2300)
-        if local_target.magnitude() < 650 and fac == 200:
+        if local_target.magnitude() < 750 and fac == 150:
             agent.set_intent(flip(agent.me.local(agent.foe_goal.location - agent.me.location)))
+
+
+class delayed_kickoff(Routine):
+    def run(self, agent):
+        local_target2 = agent.me.local(agent.ball.location - agent.me.location)
+        defaultPD(agent, local_target2)
+        agent.controller.throttle = 0.2
+        if local_target2.magnitude() < 1700:
+            if local_target2.magnitude() < 650:
+                agent.set_intent(flip(agent.me.local(agent.foe_goal.location - agent.me.location)))
+            else:
+                agent.controller.boost = True
 
 
 class recovery(Routine):

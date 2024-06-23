@@ -1,7 +1,7 @@
 
 from util.common import *
 from util.objects import BotCommandAgent
-from util.routines import flick, pop_ball, flip, delayed_kickoff
+from util.routines import flick, pop_ball, flip, delayed_kickoff, kickoff
 
 class State:
     def run(self, agent: BotCommandAgent) -> None:
@@ -10,12 +10,20 @@ class State:
 
 class KickoffSelector(State):
     def __init__(self) -> None:
-        pass
+        self.diag = False
+        self.middle = False
 
     def run(self, agent: BotCommandAgent):
         if agent.intent is None:
+            if agent.me.velocity.magnitude() < 100:
+                self.diag = abs(agent.me.location.x) > 1500
+                self.middle = abs(agent.me.location.x) < 100
+
             if True: # 1v1
-                agent.set_intent(delayed_kickoff(agent.me.location))
+                if not self.middle:
+                    agent.set_intent(kickoff(agent.me.location))
+                else:
+                    agent.set_intent(delayed_kickoff())
 
 
         if not agent.kickoff_flag:
