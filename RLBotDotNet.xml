@@ -1,0 +1,955 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>RLBotDotNet</name>
+    </assembly>
+    <members>
+        <member name="T:RLBotDotNet.Bot">
+            <summary>
+            Inherit from this class to make a bot.
+            Bot logic that should be executed every frame goes in <see cref="M:RLBotDotNet.Bot.GetOutput(rlbot.flat.GameTickPacket)"/>
+            </summary>
+        </member>
+        <member name="F:RLBotDotNet.Bot.Name">
+            <summary>
+            The name given to the bot in its configuration file.
+            </summary>
+        </member>
+        <member name="F:RLBotDotNet.Bot.Team">
+            <summary>
+            The team the bot is on (0 for blue, 1 for orange).
+            </summary>
+        </member>
+        <member name="F:RLBotDotNet.Bot.Index">
+            <summary>
+            The index of the bot in the match.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Bot.#ctor(System.String,System.Int32,System.Int32)">
+            <summary>
+            Creates a bot instance. To be used by the BotManager.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Bot.GetOutput(rlbot.flat.GameTickPacket)">
+            <summary>
+            This method should contain the bot logic that should be executed every frame.
+            </summary>
+            <param name="gameTickPacket">The game data input.</param>
+            <returns>Should return the Controller outputs that the bot should execute.</returns>
+        </member>
+        <member name="P:RLBotDotNet.Bot.Renderer">
+            <summary>
+            Can be used to draw onto the screen.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Bot.GetFieldInfo">
+            <summary>
+            Gets information about the game that does not change, such as boost pad and goal locations.
+            </summary>
+            <exception cref="T:RLBotDotNet.Utils.FlatbuffersPacketException">Throws when the game has not started yet.</exception>
+        </member>
+        <member name="M:RLBotDotNet.Bot.GetBallPrediction">
+            <summary>
+            Gets a <see cref="T:rlbot.flat.BallPrediction"/> object containing the simulated path of the ball for the next 6 seconds.
+            Each slice of the prediction advances by 1/60 of a second.
+            </summary>
+            <example>
+            Sample code to get ball prediction and get the initial slice:
+            <code>
+            BallPrediction prediction = GetBallPrediction();
+            PredictionSlide initialSlice = prediction.Slices(0).Value;
+            </code>
+            </example>
+        </member>
+        <member name="M:RLBotDotNet.Bot.GetRigidBodyTick">
+            <summary>
+            Warning: This method has been deprecated.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Bot.GetMatchSettings">
+            <summary>
+            Gets the configuration (possibly from RLBot.cfg) for the current match being played.
+            </summary>
+            <example>
+            Sample code to get current map:
+            <code>
+            MatchSettings matchSettings = GetMatchSettings();
+            GameMap map = matchSettings.GameMap;
+            </code>
+            </example>
+        </member>
+        <member name="M:RLBotDotNet.Bot.SendQuickChatFromAgent(System.Boolean,rlbot.flat.QuickChatSelection)">
+            <summary>
+            Passes the agent's quick chats to the other bots.
+            </summary>
+            <param name="teamOnly">
+            If true, only bots on the agent's team will be able to see the quick chat.<br/>
+            If false, the quick chat sent is global and every bot will be able to see it.
+            </param>
+            <param name="quickChat">The quick chat that should be sent</param>
+            <remarks>
+            The agent is limited to 5 quick chats in a 2 second period starting from the first chat.
+            This means you can spread your chats out to be even within that 2 second period.
+            You could spam them in a short duration but they will be then throttled.
+            </remarks>
+            <exception cref="T:RLBotDotNet.Utils.FlatbuffersPacketException">Throws when the game has not started yet.</exception>
+            <example>
+            Sample code to send "What a save!" globally:
+            <code>
+            SendQuickChatFromAgent(false, QuickChatSelection.Compliments_WhatASave);
+            </code>
+            </example>
+        </member>
+        <member name="M:RLBotDotNet.Bot.ReceiveQuickChat">
+            <summary>
+            Gets all messages that have been sent since the last call to this method.
+            </summary>
+            <returns>List of new messages.</returns>
+            <example>
+            Sample code to print all messages:
+            <code>
+            QuickChatMessages messages = ReceiveQuickChat();
+            for (int i = 0; i &lt; messages.MessagesLength; i++)
+            {
+                QuickChat quickChat = messages.Messages(i).Value;
+                Console.WriteLine($"Received {quickChat.QuickChatSelection} from player #{quickChat.PlayerIndex}");
+            }
+            </code>
+            </example>
+        </member>
+        <member name="M:RLBotDotNet.Bot.SetGameState(RLBotDotNet.GameState.GameState)">
+            <summary>
+            Allows the bot to set the game's state just like in training mode.
+            </summary>
+            <param name="gameState">The game state that should be set.</param>
+            <example>
+            Sample code to set the game state:
+            <code>
+            GameState gameState = new GameState();
+            CarState carState = new CarState
+            {
+                Boost = 87f,
+                PhysicsState = new PhysicsState(
+                    velocity: new DesiredVector3(null, null, 500),
+                    rotation: new DesiredRotator((float) Math.PI / 2, 0, 0),
+                    angularVelocity: new DesiredVector3(0, 0, 0)
+                )
+            };
+            gameState.SetCarState(this.index, carState);
+            gameState.BallState.PhysicsState.Location = new DesiredVector3(0, 0, null);
+            gameState.GameInfoState.WorldGravityZ = 700f;
+            gameState.GameInfoState.GameSpeed = 0.8f;
+            SetGameState(gameState);
+            </code>
+            With the above code:
+            <list type="bullet">
+                <item>The bot will fling itself upward with its front pointed to the ceiling.</item>
+                <item>The ball will warp to the middle of the field but without altering its z position.</item>
+                <item>The world gravity will act weakly upwards. Note: Setting gravity to 0 will reset the gravity to normal settings.</item>
+                <item>If you want to disable gravity, set the gravity to something very small like 0.0001.</item>
+                <item>The game's speed will be reduced to 80% of the normal speed.</item>
+            </list>
+            In the above example, the ball's X and Y locations will be set to 0, but the Z will be untouched.
+            </example>
+            <remarks>
+            A <c>null</c> means that the property will not be changed.
+            Warning: Setting gravity and game speed every frame will likely cause your game to lag!
+            It is strongly recommended you only set them when required (e.g. only at the start of the game).
+            </remarks>
+        </member>
+        <member name="M:RLBotDotNet.Bot.Dispose">
+            <summary>
+            This optional method will be called on bot shutdown and should contain code that cleans up resources used by the bot.
+            </summary>
+        </member>
+        <member name="T:RLBotDotNet.Common.MediaColorExtensions">
+            <summary>
+            Extension methods for <see cref="T:System.Drawing.Color"/>.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Common.MediaColorExtensions.ToOffsetColor(System.Drawing.Color,FlatBuffers.FlatBufferBuilder)">
+            <summary>
+            Converts the <see cref="T:System.Drawing.Color"/> to the offset color with the given <see cref="T:FlatBuffers.FlatBufferBuilder"/>.
+            </summary>
+            <param name="color">The <see cref="T:System.Drawing.Color"/> to convert.</param>
+            <param name="builder">The <see cref="T:FlatBuffers.FlatBufferBuilder"/> to use to create the offset color.</param>
+            <returns>The created offset color from the <see cref="T:System.Drawing.Color"/>.</returns>
+        </member>
+        <member name="T:RLBotDotNet.Common.NumericVector2Extensions">
+            <summary>
+            Extension methods for <see cref="T:System.Numerics.Vector2"/>.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Common.NumericVector2Extensions.ToOffsetVector(System.Numerics.Vector2,FlatBuffers.FlatBufferBuilder)">
+            <summary>
+            Converts the <see cref="T:System.Numerics.Vector2"/> to offset vector with the given <see cref="T:FlatBuffers.FlatBufferBuilder"/>.
+            </summary>
+            <param name="vector2">The <see cref="T:System.Numerics.Vector2"/> to convert.</param>
+            <param name="builder">The <see cref="T:FlatBuffers.FlatBufferBuilder"/> to use to create the offset vector.</param>
+            <returns>The created offset vector from the <see cref="T:System.Numerics.Vector2"/>.</returns>
+        </member>
+        <member name="T:RLBotDotNet.Common.NumericVector3Extensions">
+            <summary>
+            Extension methods for <see cref="T:System.Numerics.Vector3"/>.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Common.NumericVector3Extensions.ToOffsetVector(System.Numerics.Vector3,FlatBuffers.FlatBufferBuilder)">
+            <summary>
+            Converts the <see cref="T:System.Numerics.Vector3"/> to offset vector with the given <see cref="T:FlatBuffers.FlatBufferBuilder"/>.
+            </summary>
+            <param name="vector3">The <see cref="T:System.Numerics.Vector3"/> to convert.</param>
+            <param name="builder">The <see cref="T:FlatBuffers.FlatBufferBuilder"/> to use to create the offset vector.</param>
+            <returns>The created offset vector from the <see cref="T:System.Numerics.Vector3"/>.</returns>
+        </member>
+        <member name="T:RLBotDotNet.Controller">
+            <summary>
+            A struct that represents the outputs that the bot should perform.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.GameState.GameState.BuildGameStatePacket">
+            <summary>
+            Builds the flatbuffer containing the desired state.
+            This is only used internally.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:RLBotDotNet.GameState.GameState.CreateFromGameTickPacket(rlbot.flat.GameTickPacket)">
+            <summary>
+            Creates a GameState from a GameTickPacket. Useful for saving a scenario and implementing "quicksave/quickload" functionality.
+            </summary>
+            <param name="gameTickPacket">The packet to create the GameState from.</param>
+        </member>
+        <member name="T:RLBotDotNet.Utils.ByteBufferStruct">
+            <summary>
+            This is the ByteBuffer struct used in the interface DLL.
+            </summary>
+        </member>
+        <member name="T:RLBotDotNet.Utils.RLBotInterface">
+            <summary>
+            Contains all the methods provided by the interface DLL.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.GetGameTickPacket">
+            <summary>
+            Returns the current frame's GameTickPacket.
+            </summary>
+            <returns>The current frame's GameTickPacket.</returns>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.GetRigidBodyTick">
+            <summary>
+            Returns the current frame's RigidBodyTick.
+            </summary>
+            <returns>The current frame's RigidBodyTick.</returns>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.GetFieldInfo">
+            <summary>
+            Returns the game's FieldInfo.
+            </summary>
+            <returns>The game's FieldInfo.</returns>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.GetBallPredictionData">
+            <summary>
+            Returns 6 seconds of the ball physics prediction.
+            </summary>
+            <returns>6 seconds of the ball physics prediction.</returns>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.SetBotInput(RLBotDotNet.Controller,System.Int32)">
+            <summary>
+            Sets the bot's controller inputs.
+            </summary>
+            <param name="controller">The controller to set the inputs to.</param>
+            <param name="index">The index of the bot's car.</param>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.SendQuickChatFlat(System.Int32,System.Boolean,rlbot.flat.QuickChatSelection)">
+            <summary>
+            Sends a quick chat flat message.
+            </summary>
+            <param name="playerIndex">The index of the bot's car.</param>
+            <param name="teamOnly">Flag indicating whether the quick chat message is for the player's team only or not.</param>
+            <param name="quickChat">The quick chat selection to send.</param>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.ReceiveQuickChat(System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Gets a list of chat messages.
+            </summary>
+            <param name="botIndex">Index of the receiving bot.</param>
+            <param name="teamIndex">Team index of the receiving bot.</param>
+            <param name="lastMessageIndex">Message index of the last received message.</param>
+            <returns>List of new messages.</returns>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.SetGameStatePacket(RLBotDotNet.GameState.GameStatePacket)">
+            <summary>
+            Sets the current state of the game.
+            </summary>
+            <param name="gameState">The desired state.</param>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.RenderPacket(RLBotDotNet.Renderer.RenderPacket)">
+            <summary>
+            Renders a render packet to the screen.
+            </summary>
+            <param name="finishedRender">The render packet to render.</param>
+        </member>
+        <member name="M:RLBotDotNet.Utils.RLBotInterface.GetMatchSettingsData">
+            <summary>
+            Returns the match settings that were most recently sent to RLBot.
+            Useful for determining the game mode, what map we're playing on, mutators, etc.
+            </summary>
+            <returns>The MatchSettings object, as defined in the flatbuffer spec.</returns>
+        </member>
+        <member name="T:RLBotDotNet.BotManager`1">
+            <summary>
+            Manages the C# bots and runs them.
+            </summary>
+            <typeparam name="T">The custom bot class that should be run.</typeparam>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.#ctor">
+            <summary>
+            Constructs a new instance of BotManager.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.#ctor(System.Int32)">
+            <summary>
+            Constructs a new instance of BotManager.
+            </summary>
+            <param name="frequency">The frequency that the bot updates at: [1, 120]. Set to 0 to update at each new packet.</param>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.RegisterBot(System.String,System.Int32,System.Int32)">
+            <summary>
+            Adds a bot to the <see cref="F:RLBotDotNet.BotManager`1.botProcesses"/> list if the index is not there already.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.RunBot(RLBotDotNet.Bot,System.Threading.AutoResetEvent)">
+            <summary>
+            Calls the given bot's <see cref="M:RLBotDotNet.Bot.GetOutput(rlbot.flat.GameTickPacket)"/> method and
+            updates its input through the interface DLL.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.MainBotLoop">
+            <summary>
+            The main bot manager loop. This will continuously run the bots by setting <see cref="F:RLBotDotNet.Manager.BotProcess.botRunEvent"/>.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.StopBotProcess(RLBotDotNet.Manager.BotProcess)">
+            <summary>
+            Stops the given bot's thread.
+            </summary>
+            <param name="botProcess">The bot process to stop.</param>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.Start(System.Int32)">
+            <summary>
+            Start the server and be ready to manage the bots.
+            </summary>
+            <param name="port">The port that the manager listens to for the Python clients.</param>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.OnBotReceived(System.String)">
+            <summary>
+            Method that is subscribed to <see cref="E:RLBotDotNet.Server.BotManagerServer.BotReceivedEvent"/>.
+            This method parses the event's message and calls the appropriate methods.
+            </summary>
+            <param name="message">The message from the event.</param>
+        </member>
+        <member name="M:RLBotDotNet.BotManager`1.PlaceInterfaceDlls(System.String)">
+            <summary>
+            Places the interface DLLs from the given directory into the bot's own DLL directory.
+            </summary>
+            <param name="dllDirectory">The directory to get the DLLs from</param>
+        </member>
+        <member name="T:RLBotDotNet.Renderer.BotLoopRenderer">
+            <summary>
+            Renderer for the bot loop.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.BotLoopRenderer.StartPacket">
+            <summary>
+            Starts the render packet.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.BotLoopRenderer.FinishAndSendIfDifferent">
+            <summary>
+            Finishes the render packet and sends it if it's different from the last packet.
+            </summary>
+        </member>
+        <member name="T:RLBotDotNet.Renderer.NamedRenderer">
+            <summary>
+            Renderer that uses a name as its index.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.NamedRenderer.#ctor(System.String)">
+            <summary>
+            Constructs a new instance of NamedRenderer using the render name as the index.
+            </summary>
+            <param name="renderName">The name to use as the render index.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.NamedRenderer.StartPacket">
+            <summary>
+            Starts the render packet.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.NamedRenderer.FinishAndSend">
+            <summary>
+            Finishes and sends the render packet.
+            </summary>
+        </member>
+        <member name="T:RLBotDotNet.Renderer.Renderer">
+            <summary>
+            Base Renderer used to draw in the game.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.#ctor(System.Int32)">
+            <summary>
+            Constructs a new instance of Renderer with the index of the renderer.
+            </summary>
+            <param name="index">The index of the renderer.</param>
+        </member>
+        <member name="P:RLBotDotNet.Renderer.Renderer.Builder">
+            <summary>
+            Gets and sets the FlatBufferBuilder used to build the render messages.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.ResetPacket">
+            <summary>
+            Removes any draw calls that have been queued up and starts over.
+            Can be called at any time.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.EraseFromScreen">
+            <summary>
+            If this renderer has previously drawn anything on the screen, it will be erased.
+            This can be called at any time. It will not interrupt any packet construction
+            that may be in progress.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.HasContent">
+            <summary>
+            Returns true if any draw calls have been queued up for the current packet.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawLine2D(System.Drawing.Color,System.Numerics.Vector2,System.Numerics.Vector2)">
+            <summary>
+            Draws a line in screen space.
+            </summary>
+            <param name="color">The color of the line.</param>
+            <param name="start">The start point of the line.</param>
+            <param name="end">The end point of the line.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawPolyLine2D(System.Drawing.Color,System.Numerics.Vector2[])">
+            <summary>
+            Draws a line joined by several points in screen space.
+            </summary>
+            <param name="color">The color of the line.</param>
+            <param name="vectors">The vectors of the line.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawLine3D(System.Drawing.Color,System.Numerics.Vector3,System.Numerics.Vector3)">
+            <summary>
+            Draws a line between two points in world space.
+            </summary>
+            <param name="color">The color of the line.</param>
+            <param name="start">The start point of the line.</param>
+            <param name="end">The end point of the line.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawPolyLine3D(System.Drawing.Color,System.Numerics.Vector3[])">
+            <summary>
+            Draws a line joined by several points in world space.
+            </summary>
+            <param name="color">The color of the line.</param>
+            <param name="vectors">The vectors of the line.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawLine3D(System.Drawing.Color,rlbot.flat.Vector3,rlbot.flat.Vector3)">
+            <summary>
+            Draws a line between two points in world space.
+            </summary>
+            <param name="color">The color of the line.</param>
+            <param name="start">The start point of the line.</param>
+            <param name="end">The end point of the line.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawPolyLine3D(System.Drawing.Color,rlbot.flat.Vector3[])">
+            <summary>
+            Draws a line joined by several points in screen space.
+            </summary>
+            <param name="color">The color of the line.</param>
+            <param name="vectors">The vectors of the line.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawLine2D3D(System.Drawing.Color,System.Numerics.Vector2,System.Numerics.Vector3)">
+            <summary>
+            Draws a 2D line which starts at a screen coordinate and ends at a world coordinate.
+            </summary>
+            <param name="color">The color of the line.</param>
+            <param name="start">The start point of the line.</param>
+            <param name="end">The end point of the line.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawLine2D3D(System.Drawing.Color,System.Numerics.Vector2,rlbot.flat.Vector3)">
+            <summary>
+            Draws a 2D line which starts at a screen coordinate and ends at a 3D coordinate.
+            </summary>
+            <param name="color">The color of the line.</param>
+            <param name="start">The start point of the line.</param>
+            <param name="end">The end point of the line.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawRectangle2D(System.Drawing.Color,System.Numerics.Vector2,System.Int32,System.Int32,System.Boolean)">
+            <summary>
+            Draws a 2D rectangle in screen space.
+            </summary>
+            <param name="color">The color of the rectangle.</param>
+            <param name="upperLeft">The upper left corner of the rectangle.</param>
+            <param name="width">The width in pixels.</param>
+            <param name="height">The height in pixels</param>
+            <param name="filled">Flag indicating whether the rectangle should be filled in</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawRectangle3D(System.Drawing.Color,System.Numerics.Vector3,System.Int32,System.Int32,System.Boolean)">
+            <summary>
+            Draws a 2D rectangle at a 3D-tracked position in world space.
+            </summary>
+            <param name="color">The color of the rectangle.</param>
+            <param name="upperLeft">The upper left corner of the rectangle.</param>
+            <param name="width">The width in pixels.</param>
+            <param name="height">The height in pixels</param>
+            <param name="filled">Flag indicating whether the rectangle should be filled in</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawRectangle3D(System.Drawing.Color,rlbot.flat.Vector3,System.Int32,System.Int32,System.Boolean)">
+            <summary>
+            Draws a 2D rectangle at a 3D-tracked position in world space.
+            </summary>
+            <param name="color">The color of the rectangle.</param>
+            <param name="position">The upper left corner of the rectangle.</param>
+            <param name="width">The width in pixels.</param>
+            <param name="height">The height in pixels</param>
+            <param name="filled">Flag indicating whether the rectangle should be filled in</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawCenteredRectangle3D(System.Drawing.Color,System.Numerics.Vector3,System.Int32,System.Int32,System.Boolean)">
+            <summary>
+            Draws a 2D rectangle at a 3D-tracked position in world space.<br/>
+            The given position is center of the rectangle.
+            </summary>
+            <param name="color">The color of the rectangle.</param>
+            <param name="position">The center of the rectangle.</param>
+            <param name="width">The width in pixels.</param>
+            <param name="height">The height in pixels</param>
+            <param name="filled">Flag indicating whether the rectangle should be filled in</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawCenteredRectangle3D(System.Drawing.Color,rlbot.flat.Vector3,System.Int32,System.Int32,System.Boolean)">
+            <summary>
+            Draws a 2D rectangle at a 3D-tracked position in world space.<br/>
+            The given position is center of the rectangle.
+            </summary>
+            <param name="color">The color of the rectangle.</param>
+            <param name="position">The center of the rectangle.</param>
+            <param name="width">The width in pixels.</param>
+            <param name="height">The height in pixels</param>
+            <param name="filled">Flag indicating whether the rectangle should be filled in</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawString2D(System.String,System.Drawing.Color,System.Numerics.Vector2,System.Int32,System.Int32)">
+            <summary>
+            Draws text in screen space.
+            </summary>
+            <param name="text">The text to draw.</param>
+            <param name="color">The color of the string.</param>
+            <param name="upperLeft">The location of the upper left corner of the text.</param>
+            <param name="scaleX">The multiplier for the width of the text.</param>
+            <param name="scaleY">The multiplier for the height of the text</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawString3D(System.String,System.Drawing.Color,System.Numerics.Vector3,System.Int32,System.Int32)">
+            <summary>
+            Draws text in 2D, but the upper-left corner is at a 3D-tracked position in world space.
+            </summary>
+            <param name="text">The text to draw.</param>
+            <param name="color">The color of the string.</param>
+            <param name="upperLeft">The location of the upper left corner of the text.</param>
+            <param name="scaleX">The multiplier for the width of the text.</param>
+            <param name="scaleY">The multiplier for the height of the text</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DrawString3D(System.String,System.Drawing.Color,rlbot.flat.Vector3,System.Int32,System.Int32)">
+            <summary>
+            Draws text in 2D, but the upper-left corner is at a 3D-tracked position in world space.
+            </summary>
+            <param name="text">The text to draw.</param>
+            <param name="color">The color of the string.</param>
+            <param name="upperLeft">The location of the upper left corner of the text.</param>
+            <param name="scaleX">The multiplier for the width of the text.</param>
+            <param name="scaleY">The multiplier for the height of the text</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.SendPacket(RLBotDotNet.Renderer.RenderPacket)">
+            <summary>
+            Sends the render packet to the RLBot interface.
+            </summary>
+            <param name="packet">The packet to send.</param>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.Renderer.DoFinishPacket">
+            <summary>
+            Finishes the render packet and returns the complete packet.
+            </summary>
+            <returns>Returns the completed render packet.</returns>
+        </member>
+        <member name="T:RLBotDotNet.Renderer.RenderPacket">
+            <summary>
+            Packet for render messages that get sent through the RLBot interface.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.RenderPacket.#ctor(System.Byte[])">
+            <summary>
+            Constructs a new instance of RenderPacket with the byte array of the render message.
+            </summary>
+            <param name="bytes">The bytes of the render message.</param>
+        </member>
+        <member name="P:RLBotDotNet.Renderer.RenderPacket.Bytes">
+            <summary>
+            Gets the bytes of the render message.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.RenderPacket.Equals(System.Object)">
+            <summary>
+            Determines the equality of the RenderPacket and the other object.
+            </summary>
+            <param name="obj">The object to test equality with.</param>
+            <returns>Returns true if the objects are equal, false otherwise.</returns>
+        </member>
+        <member name="M:RLBotDotNet.Renderer.RenderPacket.GetHashCode">
+            <summary>
+            Gets the hash code of the RenderPacket.
+            </summary>
+            <returns>Returns the hashcode of the RenderPacket.</returns>
+        </member>
+        <member name="T:RLBotDotNet.Server.BotManagerServer">
+            <summary>
+            Used for running a server to get bot data from Python clients.<br/>
+            E.g. Will receive "add MyBot 1 3 ", which means "Add a bot called MyBot to team 1 with index 3".
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Server.BotManagerServer.OnBotReceived(System.String)">
+            <summary>
+            Event that gets raised whenever a message is received from the Python client.
+            </summary>
+        </member>
+        <member name="M:RLBotDotNet.Server.BotManagerServer.Start(System.Int32)">
+            <summary>
+            Starts the server, which continuously listens for clients until it is stopped.
+            </summary>
+            <param name="port">The port to run the server on.</param>
+        </member>
+        <member name="M:RLBotDotNet.Server.BotManagerServer.Stop">
+            <summary>
+            Stops the server if it is running.
+            </summary>
+        </member>
+        <member name="T:RLBotDotNet.Server.BotReceivedEventArgs">
+            <summary>
+            Event arguments that contain the message of the client to the server.
+            </summary>
+        </member>
+        <member name="M:rlbot.flat.BallPrediction.Slices(System.Int32)">
+            A list of places the ball will be at specific times in the future.
+            It is guaranteed to sorted so that time increases with each slice.
+            It is NOT guaranteed to have a consistent amount of time between slices.
+        </member>
+        <member name="T:rlbot.flat.BallRigidBodyState">
+            Rigid body state for the ball.
+        </member>
+        <member name="P:rlbot.flat.BoostPadState.IsActive">
+            True if the boost can be picked up
+        </member>
+        <member name="P:rlbot.flat.BoostPadState.Timer">
+            The number of seconds since the boost has been picked up, or 0.0 if the boost is active.
+        </member>
+        <member name="T:rlbot.flat.ConsoleCommand">
+            A console command which we will try to execute inside Rocket League.
+            See https://github.com/RLBot/RLBot/wiki/Console-Commands for a list of known commands.
+        </member>
+        <member name="P:rlbot.flat.ControllerState.Throttle">
+            -1 for full reverse, 1 for full forward
+        </member>
+        <member name="P:rlbot.flat.ControllerState.Steer">
+            -1 for full left, 1 for full right
+        </member>
+        <member name="P:rlbot.flat.ControllerState.Pitch">
+            -1 for nose down, 1 for nose up
+        </member>
+        <member name="P:rlbot.flat.ControllerState.Yaw">
+            -1 for full left, 1 for full right
+        </member>
+        <member name="P:rlbot.flat.ControllerState.Roll">
+            -1 for roll left, 1 for roll right
+        </member>
+        <member name="P:rlbot.flat.ControllerState.Jump">
+            true if you want to press the jump button
+        </member>
+        <member name="P:rlbot.flat.ControllerState.Boost">
+            true if you want to press the boost button
+        </member>
+        <member name="P:rlbot.flat.ControllerState.Handbrake">
+            true if you want to press the handbrake button
+        </member>
+        <member name="P:rlbot.flat.ControllerState.UseItem">
+            true if you want to press the 'use item' button, used in rumble etc.
+        </member>
+        <member name="P:rlbot.flat.DropshotTile.TileState">
+            The amount of damage the tile has sustained.
+        </member>
+        <member name="F:rlbot.flat.ExistingMatchBehavior.Restart_If_Different">
+            Restart the match if any match settings differ. This is the default because old RLBot always worked this way.
+        </member>
+        <member name="F:rlbot.flat.ExistingMatchBehavior.Restart">
+            Always restart the match, even if config is identical
+        </member>
+        <member name="F:rlbot.flat.ExistingMatchBehavior.Continue_And_Spawn">
+            Never restart an existing match, just try to remove or spawn cars to match the configuration.
+            If we are not in the middle of a match, a match will be started. Handy for LAN matches.
+        </member>
+        <member name="P:rlbot.flat.GameInfo.IsRoundActive">
+            True when cars are allowed to move, and during the pause menu. False during replays.
+        </member>
+        <member name="P:rlbot.flat.GameInfo.IsKickoffPause">
+            True when the clock is paused due to kickoff, but false during kickoff countdown. In other words, it is true
+            while cars can move during kickoff. Note that if both players sit still, game clock start and this will become false.
+        </member>
+        <member name="P:rlbot.flat.GameInfo.IsMatchEnded">
+            Turns true after final replay, the moment the 'winner' screen appears. Remains true during next match
+            countdown. Turns false again the moment the 'choose team' screen appears.
+        </member>
+        <member name="P:rlbot.flat.GameInfo.GameSpeed">
+            Game speed multiplier, 1.0 is regular game speed.
+        </member>
+        <member name="P:rlbot.flat.GameInfo.FrameNum">
+            Tracks the number of physics frames the game has computed.
+            May increase by more than one across consecutive packets.
+            Data type will roll over after 207 days at 120Hz.
+        </member>
+        <member name="T:rlbot.flat.HumanPlayer">
+            A normal human player
+        </member>
+        <member name="T:rlbot.flat.LoadoutPaint">
+            Specification for 'painted' items. See https://github.com/RLBot/RLBot/wiki/Bot-Customization
+        </member>
+        <member name="P:rlbot.flat.MatchSettings.GameMapUpk">
+            The name of a upk file, like UtopiaStadium_P, which should be loaded.
+            If specified, this overrides gameMap. On Steam version of Rocket League,
+            this can be used to load custom map files, but on Epic version it only
+            works on the Psyonix maps. Still useful because maintaining the gameMap
+            enum as new Psyonix maps are added is annoying.
+        </member>
+        <member name="T:rlbot.flat.MessagePacket">
+            We have some very small messages that are only a few bytes but potentially sent at high frequency.
+            Bundle them into a packet to reduce the overhead of sending data over TCP.
+        </member>
+        <member name="T:rlbot.flat.PartyMemberBotPlayer">
+            A player that Rocket League treats as human, e.g. has a dedicated camera and can do training mode,
+            but is actually controlled by a bot.
+        </member>
+        <member name="P:rlbot.flat.PlayerConfiguration.SpawnId">
+            In the case where the requested player index is not available, spawnId will help
+            the framework figure out what index was actually assigned to this player instead.
+        </member>
+        <member name="P:rlbot.flat.PlayerInfo.HasWheelContact">
+            True if your wheels are on the ground, the wall, or the ceiling. False if you're midair or turtling.
+        </member>
+        <member name="P:rlbot.flat.PlayerInfo.Jumped">
+            True if the player has jumped. Falling off the ceiling / driving off the goal post does not count.
+        </member>
+        <member name="P:rlbot.flat.PlayerInfo.DoubleJumped">
+             True if player has double jumped. False does not mean you have a jump remaining, because the
+             aerial timer can run out, and that doesn't affect this flag.
+        </member>
+        <member name="P:rlbot.flat.PlayerInfo.SpawnId">
+            In the case where the requested player index is not available, spawnId will help
+            the framework figure out what index was actually assigned to this player instead.
+        </member>
+        <member name="T:rlbot.flat.PlayerInputChange">
+            Rocket League is notifying us that some player has moved their controller. This is an *output*
+        </member>
+        <member name="T:rlbot.flat.PlayerLoadout">
+            The car type, color, and other aspects of the player's appearance.
+            See https://github.com/RLBot/RLBot/wiki/Bot-Customization
+        </member>
+        <member name="P:rlbot.flat.PlayerLoadout.PrimaryColorLookup">
+            Sets the primary color of the car to the swatch that most closely matches the provided
+            RGB color value. If set, this overrides teamColorId.
+        </member>
+        <member name="P:rlbot.flat.PlayerLoadout.SecondaryColorLookup">
+            Sets the secondary color of the car to the swatch that most closely matches the provided
+            RGB color value. If set, this overrides customColorId.
+        </member>
+        <member name="T:rlbot.flat.PlayerRigidBodyState">
+            Rigid body state for a player / car in the game. Includes the latest
+            controller input, which is otherwise difficult to correlate with consequences.
+        </member>
+        <member name="T:rlbot.flat.PlayerSpectate">
+            Notification when the local player is spectating another player.
+        </member>
+        <member name="P:rlbot.flat.PlayerSpectate.PlayerIndex">
+            index of the player that is being spectated. Will be -1 if not spectating anyone.
+        </member>
+        <member name="T:rlbot.flat.PlayerStatEvent">
+            Notification that a player triggers some in-game event, such as:
+            	Win, Loss, TimePlayed;
+            	Shot, Assist, Center, Clear, PoolShot;
+            	Goal, AerialGoal, BicycleGoal, BulletGoal, BackwardsGoal, LongGoal, OvertimeGoal, TurtleGoal;
+            	AerialHit, BicycleHit, BulletHit, /*BackwardsHit,*/ JuggleHit, FirstTouch, BallHit;
+            	Save, EpicSave, FreezeSave;
+            	HatTrick, Savior, Playmaker, MVP;
+            	FastestGoal, SlowestGoal, FurthestGoal, OwnGoal;
+            	MostBallTouches, FewestBallTouches, MostBoostPickups, FewestBoostPickups, BoostPickups;
+            	CarTouches, Demolition, Demolish;
+            	LowFive, HighFive;
+        </member>
+        <member name="P:rlbot.flat.PlayerStatEvent.PlayerIndex">
+            index of the player associated with the event
+        </member>
+        <member name="P:rlbot.flat.PlayerStatEvent.StatType">
+            Event type
+        </member>
+        <member name="P:rlbot.flat.PredictionSlice.GameSeconds">
+            The moment in game time that this prediction corresponds to.
+            This corresponds to 'secondsElapsed' in the GameInfo table.
+        </member>
+        <member name="P:rlbot.flat.PredictionSlice.Physics">
+            The predicted location and motion of the object.
+        </member>
+        <member name="T:rlbot.flat.PsyonixBotPlayer">
+            A psyonix bot, e.g. All Star bot
+        </member>
+        <member name="T:rlbot.flat.Quaternion">
+            Expresses the rotation state of an object.
+            Learn about quaternions here: https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+            You can tinker with them here to build an intuition: https://quaternions.online/
+        </member>
+        <member name="P:rlbot.flat.QuickChat.PlayerIndex">
+            The index of the player that sent the quick chat
+        </member>
+        <member name="P:rlbot.flat.QuickChat.TeamOnly">
+            True if the chat is team only false if everyone can see it.
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.MaxPysonixQuickChatPresets">
+            Custom text chats made by bot makers
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Toxic_WasteCPU">
+            Waste of CPU cycles
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Toxic_GitGut">
+            Git gud*
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Toxic_DeAlloc">
+            De-Allocate Yourself
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Toxic_404NoSkill">
+            404: Your skill not found
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Toxic_CatchVirus">
+            Get a virus
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Useful_Passing">
+            Passing!
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Useful_Faking">
+            Faking!
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Useful_Demoing">
+            Demoing!
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Useful_Bumping">
+            BOOPING
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Compliments_TinyChances">
+            The chances of that was 47525 to 1*
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Compliments_SkillLevel">
+            Who upped your skill level?
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Compliments_proud">
+            Your programmer should be proud
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Compliments_GC">
+            You're the GC of Bots
+        </member>
+        <!-- Badly formed XML comment ignored for member "F:rlbot.flat.QuickChatSelection.Custom_Compliments_Pro" -->
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Excuses_Lag">
+            Lag
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Excuses_GhostInputs">
+            Ghost inputs
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Excuses_Rigged">
+            RIGGED
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Toxic_MafiaPlays">
+            Mafia plays!
+        </member>
+        <member name="F:rlbot.flat.QuickChatSelection.Custom_Exclamation_Yeet">
+            Yeet!
+        </member>
+        <member name="T:rlbot.flat.ReadyMessage">
+            Sent when connecting to RLBot to indicate what type of messages are desired.
+            This could be sent by a bot, or a bot manager governing several bots, an
+            overlay, or any other utility that connects to the RLBot process.
+        </member>
+        <member name="P:rlbot.flat.RenderGroup.Id">
+            The id of the render group
+        </member>
+        <member name="P:rlbot.flat.RenderMessage.Start">
+            For 2d renders this only grabs x and y
+        </member>
+        <member name="P:rlbot.flat.RenderMessage.End">
+            For 2d renders this only grabs x and y
+        </member>
+        <member name="P:rlbot.flat.RenderMessage.ScaleX">
+            Scales the x size of the text/rectangle, is used for rectangles assuming an initial value of 1
+        </member>
+        <member name="P:rlbot.flat.RenderMessage.ScaleY">
+            Scales the y size of the text/rectangle, is used for rectangles assuming an initial value of 1
+        </member>
+        <member name="P:rlbot.flat.RenderMessage.IsFilled">
+            Rectangles can be filled or just outlines.
+        </member>
+        <member name="T:rlbot.flat.RigidBodyState">
+            The state of a rigid body in Rocket League's physics engine.
+            This gets updated in time with the physics tick, not the rendering framerate.
+            The frame field will be incremented every time the physics engine ticks.
+        </member>
+        <member name="T:rlbot.flat.RigidBodyTick">
+            Contains all rigid body state information.
+        </member>
+        <member name="T:rlbot.flat.RLBotPlayer">
+            A bot controlled by the RLBot framework
+        </member>
+        <member name="T:rlbot.flat.Rotator">
+            Expresses the rotation state of an object in Euler angles, with values in radians.
+        </member>
+        <member name="P:rlbot.flat.TeamInfo.Score">
+            number of goals scored.
+        </member>
+        <member name="F:rlbot.flat.TileState.Filled">
+            The default state of the tiles.
+        </member>
+        <member name="F:rlbot.flat.TileState.Damaged">
+            The state when a tile has been damaged.
+        </member>
+        <member name="F:rlbot.flat.TileState.Open">
+            The state of a tile when it is open and a goal can be scored.
+        </member>
+        <member name="T:rlbot.flat.TinyBall">
+            A minimal version of the ball, useful when bandwidth needs to be conserved.
+        </member>
+        <member name="T:rlbot.flat.TinyPacket">
+            A minimal version of the game tick packet, useful when bandwidth needs to be conserved.
+        </member>
+        <member name="T:rlbot.flat.TinyPlayer">
+            A minimal version of player data, useful when bandwidth needs to be conserved.
+        </member>
+        <member name="P:rlbot.flat.Touch.PlayerName">
+            The name of the player involved with the touch.
+        </member>
+        <member name="P:rlbot.flat.Touch.GameSeconds">
+            Seconds that had elapsed in the game when the touch occurred.
+        </member>
+        <member name="P:rlbot.flat.Touch.Location">
+            The point of contact for the touch.
+        </member>
+        <member name="P:rlbot.flat.Touch.Normal">
+            The direction of the touch.
+        </member>
+        <member name="P:rlbot.flat.Touch.Team">
+            The Team which the touch belongs to, 0 for blue 1 for orange.
+        </member>
+        <member name="P:rlbot.flat.Touch.PlayerIndex">
+            The index of the player involved with the touch.
+        </member>
+    </members>
+</doc>
